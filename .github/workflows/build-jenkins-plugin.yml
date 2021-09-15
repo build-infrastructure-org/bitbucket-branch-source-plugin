@@ -1,0 +1,16 @@
+name: Build Jenkins Plugin
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build with Maven
+        run: mvn clean install --batch-mode -Djava.level=8
+      - name: Archive hpi
+        uses: actions/upload-artifact@v2
+        with:
+          name: cloudbees-bitbucket-branch-source.hpi
+          path: target/cloudbees-bitbucket-branch-source.hpi
