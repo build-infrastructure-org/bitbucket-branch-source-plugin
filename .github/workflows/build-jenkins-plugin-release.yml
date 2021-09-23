@@ -1,4 +1,4 @@
-name: Build Jenkins Plugin
+name: Build Jenkins Plugin Release
 
 on:
   push:
