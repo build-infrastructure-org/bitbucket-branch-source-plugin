@@ -3,6 +3,7 @@ name: Build Jenkins Plugin Release
 on:
   push:
     tags:
+      - '*'
 
 jobs:
   build:
