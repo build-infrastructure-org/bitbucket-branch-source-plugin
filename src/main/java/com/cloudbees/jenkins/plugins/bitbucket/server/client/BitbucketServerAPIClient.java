@@ -115,6 +115,8 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.StandardHttpRequestRetryHandler;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.ProtectedExternally;
 
 import static java.util.Objects.requireNonNull;
 
@@ -151,6 +153,8 @@ public class BitbucketServerAPIClient implements BitbucketApi {
 
     private static final String API_COMMIT_STATUS_PATH = "/rest/build-status/1.0/commits{/hash}";
     private static final Integer DEFAULT_PAGE_LIMIT = 200;
+    private static final int TOO_MANY_REQUESTS_HTTP_STATUS = 429;
+    private static final long REQUEST_WAIT_TIME_DEFAULT = 5000;
 
     /**
      * Repository owner.
@@ -855,8 +859,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             authenticator.configureRequest(httpget);
         }
 
-        try(CloseableHttpClient client = getHttpClient(httpget);
-                CloseableHttpResponse response = client.execute(httpget, context)) {
+        try (CloseableHttpResponse response = executeMethod(httpget)) {
             String content;
             long len = response.getEntity().getContentLength();
             if (len == 0) {
@@ -898,8 +901,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             authenticator.configureRequest(httpget);
         }
 
-        try (CloseableHttpClient client = getHttpClient(httpget);
-                CloseableHttpResponse response = client.execute(httpget, context)) {
+        try (CloseableHttpResponse response = executeMethod(httpget)) {
             BufferedImage content;
             long len = response.getEntity().getContentLength();
             if (len == 0) {
@@ -1008,8 +1010,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             authenticator.configureRequest(httpget);
         }
 
-        try(CloseableHttpClient client = getHttpClient(httpget);
-                CloseableHttpResponse response = client.execute(httpget, context)) {
+        try(CloseableHttpResponse response = executeMethod(httpget)) {
             EntityUtils.consume(response.getEntity());
             return response.getStatusLine().getStatusCode();
         } finally {
@@ -1053,8 +1054,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             authenticator.configureRequest(request);
         }
 
-        try(CloseableHttpClient client = getHttpClient(request);
-                CloseableHttpResponse response = client.execute(request, context)) {
+        try (CloseableHttpResponse response = executeMethod(request)) {
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_NO_CONTENT) {
                 EntityUtils.consume(response.getEntity());
                 // 204, no content
@@ -1197,4 +1197,32 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
         return content;
     }
+
+    @Restricted(ProtectedExternally.class)
+    protected CloseableHttpResponse executeMethod(HttpRequestBase httpMethod) throws IOException {
+        CloseableHttpClient client = getHttpClient(httpMethod);
+        CloseableHttpResponse response = client.execute(httpMethod, context);
+        int count = 0;
+        while (response.getStatusLine().getStatusCode() == TOO_MANY_REQUESTS_HTTP_STATUS && count < 300) {
+            /*
+             * TODO: When bitbucket starts supporting rate limit expiration time, remove 5
+             * sec wait and put code to wait till expiration time is over. It should also
+             * fix the wait for ever loop.
+             */
+            LOGGER.fine("Bitbucket server API rate limit reached, sleeping for " + REQUEST_WAIT_TIME_DEFAULT
+                    + " milliseconds before retrying...");
+            try {
+                Thread.sleep(REQUEST_WAIT_TIME_DEFAULT);
+            } catch (InterruptedException e) {
+                return response;
+            }
+            count++;
+
+            response.close();
+            httpMethod.releaseConnection();
+            response = client.execute(httpMethod, context);
+        }
+        return response;
+    }
+
 }
