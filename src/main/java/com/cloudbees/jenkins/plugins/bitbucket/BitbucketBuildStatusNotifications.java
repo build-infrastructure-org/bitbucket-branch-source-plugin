@@ -146,11 +146,10 @@ public class BitbucketBuildStatusNotifications {
         } else if (Result.FAILURE.equals(result)) {
             statusDescription = StringUtils.defaultIfBlank(buildDescription, "There was a failure building this commit.");
             state = FAILED_STATE;
-        // TODO:  - Uncomment the below lines, once the PR https://github.com/jenkinsci/workflow-job-plugin/pull/294 is merged. Issue reference: [JENKINS-69569] 
-        /* } else if (Result.NOT_BUILT.equals(result)) {
+        } else if (Result.NOT_BUILT.equals(result)) {
             // Bitbucket Cloud and Server support different build states.
             state = (bitbucket instanceof BitbucketCloudApiClient) ? STOPPED_STATE : SUCCESSFUL_STATE;
-            statusDescription = StringUtils.defaultIfBlank(buildDescription, "This commit was not built (probably the build was skipped)"); */
+            statusDescription = StringUtils.defaultIfBlank(buildDescription, "This commit was not built (probably the build was skipped)");
         } else if (result != null) { // ABORTED etc.
             statusDescription = StringUtils.defaultIfBlank(buildDescription, "Something is wrong with the build of this commit.");
             state = FAILED_STATE;
